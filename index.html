@@ -151,6 +151,14 @@ const FEATURES=[
  ['Minute Waltz','Complete the top lanes 3 times: a 60-second Waltz in fast 3/4 with double scoring.'],
  ['Scherzo frenzy','15 bumper hits within 8 seconds: 20 seconds of triple-value bumpers to Scherzo No.2.'],
  ['Fantaisie-Impromptu multiball','Every 3rd ramp shot launches a second ball.'],
+['D.S. al Coda combo','Segno (scoop) → D.S. (orbit) → Coda (ramp) within 15 s each: +25,000.'],
+['Repeat bonus','Orbit again within 12 s of the last orbit: the repeat signs pay ×2, ×3…'],
+['Melodic shots','Every feature plays a scale degree in the current key (slings I, lanes II–IV, accents IV, drops V–VII, scoop VI, orbit VIII). Three stepwise notes = Scale run; V then I = Perfect cadence.'],
+['Harmony pad','A soft string pad follows the chord progression of the current key every bar.'],
+['Staff writing','Roll across the staff that flows through the table and the ball writes notes on it.'],
+['Sharp · Flat · Natural bank','Drop all three accidentals: +5,000, lights kickback and orbit.'],
+['Grace-note kickback','The left outlane kickback fires with a grace note and trill.'],
+['Ped. / ✱','Holding a flipper is the sustain pedal: the Ped. marking lights, ✱ on release.'],
  ['Impromptus','Random surprise events about once a minute: double bumpers, a rose shower, or a sudden key change.'],
  ['Orchestra builds up','Unlock Strings (triads), Woodwinds (lanes), Brass (ramps), Timpani (30 bumpers). Each adds a live synthesised layer; all four = Concerto bonus.'],
  ['Composer duels (bosses)','Every 6 Preludes a rival appears at the top (Kalkbrenner, Field, Liszt, Thalberg). Hit them before the duel timer runs out.'],
@@ -210,7 +218,7 @@ function newGame(isCamp,ch){
   scherzo:0,waltz:0,berceuse:0,roses:0,applause:0,rubato:1,rubatoT:0,encore:0,encoreGiven:0,orch:[0,0,0,0],orchDone:0,
   drill:null,drillCool:25,impCool:55,doubleB:0,boss:null,bossDue:6,wizard:0,freeze:0,sheet:[],noteIdx:0,
   msgs:[],particles:[],rain:[],rainSpawn:0,ballSave:0,nudges:[],tiltWarn:0,tilted:0,pageTurn:0,
-  goal:0,chapterDone:0,t:0,beatT:0,beatN:0,lastFlipBeat:-1,laneIdle:0,strVib:[],ambT:1,caption:null,bio:null,bumpFx:[0,0,0,0],slingFx:[0,0],drops:[0,0,0],dropReset:0,kick:1,roll:[0,0,0,0],spinA:0,spinV:0,spins:0,orbLit:1,orbits:0,saucers:0,act:new Array(21).fill(0),metroSpin:0,metroA:0,chaseT:0,startT:performance.now(),windT:0,windDir:1,flash:0});
+  goal:0,chapterDone:0,t:0,beatT:0,beatN:0,lastFlipBeat:-1,laneIdle:0,strVib:[],ambT:1,caption:null,bio:null,bumpFx:[0,0,0,0],slingFx:[0,0],drops:[0,0,0],dropReset:0,kick:1,roll:[0,0,0,0],spinA:0,spinV:0,spins:0,orbLit:1,orbits:0,saucers:0,act:new Array(21).fill(0),phrase:[],nfx:[],tnotes:[],ds:{st:0,t:0},lastOrbit:-99,repeatN:0,pedT:0,metroSpin:0,metroA:0,chaseT:0,startT:performance.now(),windT:0,windDir:1,flash:0});
  setupChapter();
  newBall();
  mode='play';showOv(null);document.getElementById('pauseBtn').style.display='block';
@@ -236,11 +244,32 @@ function msg(a,b,d){S.msgs.push({a,b:b||'',t:d||2.2});if(S.msgs.length>3)S.msgs.
 function addScore(p){const mult=S.tempoMult*(1+S.dyn*.25)*(S.waltz>0?2:1)*(S.wizard>0?5:1);const v=Math.round(p*mult/10)*10;S.score+=v;S.applause+=v;
  const need=25000*(1+S.roses);if(S.applause>=need){S.applause=0;S.roses++;msg('🌹 The audience throws a rose!','Ball save banked');sfx('good');}return v;}
 function pluck(i){S.strVib[i]=1;if(!AC||muted)return;const now=AC.currentTime;if(now-(S.lastPluck||0)<.045)return;S.lastPluck=now;const k=S.key||[0,0];const sc=k[1]?[0,3,5,7,10]:[0,2,4,7,9];const m=36+k[0]+Math.floor(i/5)*12+sc[i%5];piano(Math.min(96,m),now,.035,3);}
-function hitNote(){const th=THEMES[S.theme];const i=S.noteIdx%th.p.length;if(i===0)nowPlaying(S.theme);const m=transpose(th.p[i]);S.noteIdx++;piano(m,0,.15+S.dyn*.025);S.ambT=Math.max(S.ambT,.35);S.sheet.push([performance.now()-S.startT,m]);if(S.sheet.length>400)S.sheet.shift();
+function hitNote(d){if(typeof d==='number'){deg(d);S.ambT=Math.max(S.ambT,.35);return;}const th=THEMES[S.theme];const i=S.noteIdx%th.p.length;if(i===0)nowPlaying(S.theme);const m=transpose(th.p[i]);S.noteIdx++;piano(m,0,.15+S.dyn*.025);S.ambT=Math.max(S.ambT,.35);S.sheet.push([performance.now()-S.startT,m]);if(S.sheet.length>400)S.sheet.shift();
  S.combo++;S.dynT=3;if(S.combo%5===0&&S.dyn<5){S.dyn++;const D=['pp','p','mp','mf','f','ff','fff'][S.dyn+1]||'fff';msg(D+' — crescendo','');}}
 function ambient(rdt){if(!AC||muted)return;S.ambT-=rdt;if(S.ambT>0)return;const th=THEMES[S.theme];const i=S.noteIdx%th.p.length;if(i===0)nowPlaying(S.theme);const m=transpose(th.p[i]);S.noteIdx++;piano(m,0,.055,4);
  const beat=60/(S.bpm*.85);if(i%4===0){const k=S.key||[0,0];piano(36+k[0]+(i%8?7:0),0,.05,3);}S.ambT=th.d[i]*beat*.5+(i===th.p.length-1?beat*2:0);}
-function spark(x,y,col,n){for(let i=0;i<(n||10);i++){const a=Math.random()*7,v=60+Math.random()*240;S.particles.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,t:.5+Math.random()*.5,col,s:1+Math.random()*2});}if(S.particles.length>260)S.particles.splice(0,S.particles.length-260);}
+function spark(x,y,col,n){if((n||10)>=6&&S.nfx){const k=1+(Math.random()<.4);for(let j=0;j<k;j++)S.nfx.push({x:x+(Math.random()*16-8),y,vx:Math.random()*30-15,vy:-45-Math.random()*35,t:1.3,fl:1+(Math.random()<.45),rot:Math.random()*.4-.2});if(S.nfx.length>40)S.nfx.splice(0,S.nfx.length-40);}for(let i=0;i<(n||10);i++){const a=Math.random()*7,v=60+Math.random()*240;S.particles.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,t:.5+Math.random()*.5,col,s:1+Math.random()*2});}if(S.particles.length>260)S.particles.splice(0,S.particles.length-260);}
+
+
+// ================= MUSIC NOTATION GLYPHS (drawn, no SMP font dependency) =================
+const ENGR="'Bodoni 72','Bodoni 72 Oldstyle',Didot,'Bodoni MT','Libre Bodoni','Big Caslon',Georgia,serif";
+function staffY(x){return 300+(x-40)*.42+10*Math.sin((x-40)/60);}
+function trebleClef(c,x,y,s){c.beginPath();c.moveTo(x-3*s,y+18*s);c.quadraticCurveTo(x-6*s,y+22*s,x-1*s,y+22*s);c.quadraticCurveTo(x+3*s,y+21*s,x+1*s,y+12*s);c.lineTo(x-1*s,y-12*s);c.quadraticCurveTo(x+1*s,y-22*s,x+4*s,y-18*s);c.quadraticCurveTo(x+6*s,y-12*s,x-5*s,y-2*s);c.quadraticCurveTo(x-9*s,y+6*s,x-1*s,y+9*s);c.quadraticCurveTo(x+7*s,y+9*s,x+6*s,y+3*s);c.quadraticCurveTo(x+4*s,y-2*s,x-1*s,y);c.quadraticCurveTo(x-4*s,y+3*s,x-1*s,y+5*s);c.stroke();c.beginPath();c.arc(x-3*s,y+18*s,1.6*s,0,7);c.fill();}
+function bassClef(c,x,y,s){c.beginPath();c.moveTo(x-6*s,y-1*s);c.quadraticCurveTo(x-6*s,y-8*s,x,y-8*s);c.quadraticCurveTo(x+7*s,y-7*s,x+5*s,y+1*s);c.quadraticCurveTo(x+2*s,y+8*s,x-7*s,y+12*s);c.stroke();[[x-5*s,y-1*s,1.8],[x+9*s,y-5*s,1.2],[x+9*s,y+1*s,1.2]].forEach(([a,b,r])=>{c.beginPath();c.arc(a,b,r*s,0,7);c.fill();});}
+function segno(c,x,y,s){c.beginPath();c.moveTo(x+4*s,y-5*s);c.quadraticCurveTo(x,y-9*s,x-4*s,y-5*s);c.quadraticCurveTo(x-6*s,y-1*s,x,y);c.quadraticCurveTo(x+6*s,y+1*s,x+4*s,y+5*s);c.quadraticCurveTo(x,y+9*s,x-4*s,y+5*s);c.stroke();c.beginPath();c.moveTo(x-5*s,y+7*s);c.lineTo(x+5*s,y-7*s);c.stroke();[[x-5*s,y-3*s],[x+5*s,y+3*s]].forEach(([a,b])=>{c.beginPath();c.arc(a,b,1.1*s,0,7);c.fill();});}
+function coda(c,x,y,s){c.beginPath();c.ellipse(x,y,4*s,5.5*s,0,0,7);c.stroke();c.beginPath();c.moveTo(x-7*s,y);c.lineTo(x+7*s,y);c.moveTo(x,y-8*s);c.lineTo(x,y+8*s);c.stroke();}
+function repeatSign(c,x0,y0,x1,y1,flip){const dx=x1-x0,dy=y1-y0,l=Math.hypot(dx,dy),nx=-dy/l,ny=dx/l,sg=flip?-1:1;c.save();c.lineWidth=3;c.beginPath();c.moveTo(x0,y0);c.lineTo(x1,y1);c.stroke();c.lineWidth=1;c.beginPath();c.moveTo(x0+nx*4*sg,y0+ny*4*sg);c.lineTo(x1+nx*4*sg,y1+ny*4*sg);c.stroke();[.38,.62].forEach(t=>{c.beginPath();c.arc(x0+dx*t+nx*8*sg,y0+dy*t+ny*8*sg,1.5,0,7);c.fill();});c.restore();}
+function noteGlyph(c,x,y,flags,s){s=s||1;c.beginPath();c.ellipse(x,y,3.2*s,2.3*s,-.35,0,7);c.fill();if(flags<0)return;c.lineWidth=1*s;c.beginPath();c.moveTo(x+2.9*s,y-.6*s);c.lineTo(x+2.9*s,y-13*s);c.stroke();for(let k=0;k<flags;k++){c.beginPath();c.moveTo(x+2.9*s,y-13*s+k*3.2*s);c.quadraticCurveTo(x+7.5*s,y-9*s+k*3.2*s,x+6*s,y-4.5*s+k*3.2*s);c.stroke();}}
+function wholeNote(c,x,y,s){c.save();c.translate(x,y);c.beginPath();c.ellipse(0,0,4.4*s,2.9*s,0,0,7);c.fill();c.globalCompositeOperation='destination-out';c.beginPath();c.ellipse(0,0,1.8*s,2.3*s,.9,0,7);c.fill();c.restore();}
+function tempoName(b){return b<66?'Largo':b<96?'Andante':b<132?'Allegro':'Presto';}
+function keySig(k){if(!k)return [0,0];const pc=k[1]?(k[0]+3)%12:k[0];const sh={0:0,7:1,2:2,9:3,4:4,11:5,6:6,1:7}[pc];if(sh!==undefined)return [sh,0];return [0,{5:1,10:2,3:3,8:4,1:5,6:6}[pc]||0];}
+function deg(d,g){const k=S.key||[0,0];const sc=k[1]?[0,2,3,5,7,8,10]:[0,2,4,5,7,9,11];const m=60+k[0]+12*Math.floor(d/7)+sc[((d%7)+7)%7];piano(m,0,g||(.14+S.dyn*.022));S.sheet.push([performance.now()-S.startT,m]);
+ // phrase detection: stepwise runs and cadences turn shot sequences into music
+ const P=S.phrase;P.push(d);if(P.length>6)P.shift();const n=P.length;
+ if(n>=3&&P[n-1]-P[n-2]===1&&P[n-2]-P[n-3]===1){addScore(1200);msg('Scale run','Stepwise phrase +1,200',1.4);P.length=0;}
+ else if(n>=2&&P[n-2]%7===4&&P[n-1]%7===0){addScore(2500);msg('Perfect cadence','V → I  +2,500',1.6);P.length=0;}}
+function pad(chord,dur){if(!AC||muted)return;const t=AC.currentTime+.02;chord.forEach((m,i)=>{[-5,5].forEach(dt=>{const o=AC.createOscillator(),g=AC.createGain(),f=AC.createBiquadFilter();o.type='sawtooth';o.frequency.value=mf(m);o.detune.value=dt;f.type='lowpass';f.frequency.value=900;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.011,t+.6);g.gain.linearRampToValueAtTime(.008,t+dur*.7);g.gain.linearRampToValueAtTime(0,t+dur+.4);o.connect(f);f.connect(g);g.connect(master);g.connect(revSend);o.start(t);o.stop(t+dur+.5);});});}
+function trill(){if(!AC||muted)return;const k=S.key||[0,0];const r=72+k[0];for(let i=0;i<8;i++)piano(i%2?r+2:r,AC.currentTime+i*.055,.09);piano(r-1,AC.currentTime-.0,.06);}
 
 // ================= GEOMETRY =================
 function arcPts(cx,cy,r,a0,a1,n){const p=[];for(let i=0;i<=n;i++){const a=a0+(a1-a0)*i/n;p.push([cx+r*Math.cos(a),cy+r*Math.sin(a)]);}return p;}
@@ -263,7 +292,7 @@ poly([[130,110],[130,146]]);poly([[170,110],[170,146]]);
 // slingshot bodies
 poly([[100,484],[100,540],[144,566]]);poly([[308,470],[322,515],[256,560]]);
 // inlane / outlane guide rails (plate struts) — outlanes return to the flippers along the slopes
-poly([[64,448],[64,540]]);poly([[337,473],[346,505]]);
+poly([[64,448],[64,525]]);poly([[337,473],[346,505]]);
 // orbit guide (cast-iron plate strut) forming a channel up the bentside and round the tail
 poly([[283,345],[248,170]]);
 const GATE=[[8,188],[36,206]]; // one-way gate at the top of the plunger lane: orbit balls are turned into play
@@ -307,7 +336,7 @@ function physStep(dt){
  for(const f of flippers){const tgt=f.up?UP:REST;const old=f.ang;if(f.ang>tgt)f.ang=Math.max(tgt,f.ang-fsp*dt*(f.up?1:.6));else f.ang=Math.min(tgt,f.ang+fsp*.6*dt);f.om=(f.ang-old)/dt;}
  for(const b of S.balls){
   if(b.cap||b.frz>0)continue;
-  if(b.hold>0){b.hold-=dt;b.x=SAUCER.x;b.y=SAUCER.y;b.vx=b.vy=0;if(b.hold<=0){b.vx=560;b.vy=-1060;b.noSauc=S.t+1;spark(SAUCER.x,SAUCER.y,'#ffd98a',14);hitNote();}continue;}
+  if(b.hold>0){b.hold-=dt;b.x=SAUCER.x;b.y=SAUCER.y;b.vx=b.vy=0;if(b.hold<=0){b.vx=560;b.vy=-1060;b.noSauc=S.t+1;spark(SAUCER.x,SAUCER.y,'#ffd98a',14);hitNote(5);}continue;}
   const py0=b.y;
   if(b.lane&&b.y>=690&&b.x<36&&b.vy>=0){b.vx=0;b.vy=0;b.y=700;b.x=22;continue;}
   b.vy+=g*dt;b.vx+=gx*dt;
@@ -320,7 +349,7 @@ function physStep(dt){
    if(w.kind==='drop'&&S.drops[w.i])continue;
    const r=collideSeg(b,w.a,w.b,w.kind==='wall'?1:3,w.kind==='sling'?.5:.45);
    if(r&&r.vn<-120){
-    if(w.kind==='sling'){S.slingFx[slings.indexOf(w.s)]=1;b.vx+=w.s.n[0]*480;b.vy+=w.s.n[1]*480;addScore(110);hitNote();spark(b.x,b.y,'#fff',6);ev('hit');}
+    if(w.kind==='sling'){S.slingFx[slings.indexOf(w.s)]=1;b.vx+=w.s.n[0]*480;b.vy+=w.s.n[1]*480;addScore(110);hitNote(0);spark(b.x,b.y,'#fff',6);ev('hit');}
     else if(w.kind==='triad')hitTriad(w.i,b);
     else if(w.kind==='accent')hitAccent(w.i,b);
     else if(w.kind==='fermata')hitFermata(b);
@@ -342,7 +371,7 @@ function physStep(dt){
   if(b.orb&&b.x<70&&b.y<140){b.orb=0;hitOrbit(b);}
   // inlane / outlane rollovers + kickback
   for(let i=0;i<4;i++){const r=ROLL[i];if(Math.abs(b.x-r.x)<10&&Math.abs(b.y-r.y)<8&&b.vy>0&&!S.roll[i]){S.roll[i]=1;addScore(i%3?250:750);pluck(Math.min(STR.length-1,Math.max(0,Math.round((r.x-55)/7))));if(S.roll.every(x=>x)){S.roll=[0,0,0,0];S.rubato++;msg('Return lanes complete','Rubato token +1');addScore(4000);}}}
-  if(S.kick&&!b.lane&&b.x<62&&b.y>522&&b.y<544&&b.vy>0){b.vy=-1250;b.vx=30;S.kick=0;S.kickFx=1;addScore(500);msg('Polonaise kickback!','');spark(50,535,'#ff6060',18);hitNote();}
+  if(S.kick&&!b.lane&&b.x<62&&b.y>522&&b.y<544&&b.vy>0){b.vy=-1250;b.vx=30;S.kick=0;S.kickFx=1;addScore(500);msg('Polonaise kickback!','grace note & trill');spark(50,535,'#ff6060',18);trill();}
   // bumpers
   const L=LAYOUTS[S.layout];
   for(let i=0;i<L.bumpers.length;i++){const p=L.bumpers[i];const dx=b.x-p[0],dy=b.y-p[1],d=Math.hypot(dx,dy);if(d<R+20&&d>0){const nx=dx/d,ny=dy/d;b.x=p[0]+nx*(R+20);b.y=p[1]+ny*(R+20);const vn=b.vx*nx+b.vy*ny;const kick=(minor?430:520);b.vx+=-vn*nx+nx*kick;b.vy+=-vn*ny+ny*kick;hitBumper(i,p);S.bumpFx[i]=1;}}
@@ -356,7 +385,7 @@ function physStep(dt){
   // strings: pluck when the ball rolls across one
   if(!b.lane&&!b.cap){const si=Math.round((b.x-30)/7);if(si!==b.str){if(b.str!=null&&si>=0&&si<STR.length&&b.y>STR[si].top&&b.y<STR_BOT)pluck(si);b.str=si;}}
   // lanes
-  if(b.y<laneY+12&&b.y>laneY-14)for(let i=0;i<3;i++)if(Math.abs(b.x-laneX[i])<14&&!S.lanes[i]&&!b.lane){S.lanes[i]=1;addScore(500);hitNote();ev('lane');spark(laneX[i],laneY,'#ffd98a');if(S.lanes.every(x=>x))laneSet();}
+  if(b.y<laneY+12&&b.y>laneY-14)for(let i=0;i<3;i++)if(Math.abs(b.x-laneX[i])<14&&!S.lanes[i]&&!b.lane){S.lanes[i]=1;addScore(500);hitNote(1+i);ev('lane');spark(laneX[i],laneY,'#ffd98a');if(S.lanes.every(x=>x))laneSet();}
   // ramp
   if(!b.lane&&!b.onRim&&!(S.t<(b.noRamp||0))&&b.vy<-150&&Math.hypot(b.x-rampMouth.x,b.y-rampMouth.y)<rampMouth.r)startRamp(b);
   if(b.lane&&b.x>40)b.lane=0;if(!b.lane&&b.x<34&&b.y>230)b.lane=1;
@@ -396,16 +425,16 @@ function hitTriad(i,b){S.triad[i]=1;addScore(750);const th=S.key;const root=60+t
   msg('Chord combo! +'+v.toLocaleString(),'Ballade No.'+S.ballade+(S.ballade>=4?' — the story is complete!':' begins'),3);if(S.ballade===4&&!S.balladeDone){S.balladeDone=1;addScore(25000);sfx('big');}
   if(S.ballade<=4){playPhrase(THEMES.ballade.p.slice(0,6).map(m=>m+[0,2,-2,5][S.ballade-1]),.18,.12);S.caption={txt:'Ballade No. '+S.ballade+', Op. '+[23,38,47,52][S.ballade-1],t:4};if(S.ballade===4)S.berceuse=Math.max(S.berceuse,10);}
   unlockSection(0);awardPrelude();ev('chord');}}
-function hitAccent(i,b){const beat=S.beatN%3;addScore(400);hitNote();ev('accentAny');ev('hit');
+function hitAccent(i,b){const beat=S.beatN%3;addScore(400);hitNote(3);ev('accentAny');ev('hit');
  if(i===beat&&beat!==0){const v=addScore(3000);S.accentHits++;msg('Mazurka accent! +'+v.toLocaleString(),'Accent on beat '+(beat+1));sfx('good');spark(b.x,b.y,'#f84',14);ev('accentLit');}}
 function hitFermata(b){if(b.frz>0||S.t-(S.fermLast||-9)<1.5)return;S.fermLast=S.t;S.fermatas++;b.svx=-b.vx*.2;b.svy=Math.abs(b.vy)*.6+150;b.vx=0;b.vy=0;b.frz=1.3;addScore(1000);msg('Fermata','Time holds its breath');sfx('tick');piano(transpose(84),0,.12);ev('fermata');
  if(S.fermatas%3===0){S.rubato++;msg('Rubato token earned','Three fermatas — time is yours');}}
-function hitDrop(i,b){S.drops[i]=1;addScore(600);hitNote();ev('hit');spark(dropT[i].a[0]+10,405,'#fff',8);if(S.drops.every(x=>x)){const v=addScore(5000);msg('Ballade bank down +'+v.toLocaleString(),'Kickback lit');S.kick=1;S.orbLit=1;S.dropReset=1.4;ev('triad');}}
-function hitSaucer(b){S.saucers++;const v=addScore(2500*(S.orbLit?2:1));msg('Salon scoop +'+v.toLocaleString(),'The ball is sent round the orbit');ev('hit');}
-function hitOrbit(b){S.orbits++;const v=addScore(S.orbLit?6000:3000);msg((S.orbLit?'Lit orbit':'Orbit')+' +'+v.toLocaleString(),'Round the tail of the Pleyel');S.orbLit=0;ev('hit');ev('ramp');S.metroSpin=1;}
+function hitDrop(i,b){S.drops[i]=1;addScore(600);hitNote(4+i);ev('hit');spark(dropT[i].a[0]+10,405,'#fff',8);if(S.drops.every(x=>x)){const v=addScore(5000);msg('Ballade bank down +'+v.toLocaleString(),'Kickback lit');S.kick=1;S.orbLit=1;S.dropReset=1.4;ev('triad');}}
+function hitSaucer(b){S.saucers++;S.ds={st:1,t:S.t};const v=addScore(2500*(S.orbLit?2:1));msg('Salon scoop +'+v.toLocaleString(),'The ball is sent round the orbit');ev('hit');}
+function hitOrbit(b){S.orbits++;hitNote(7);S.repeatN=S.t-S.lastOrbit<12?S.repeatN+1:0;S.lastOrbit=S.t;if(S.repeatN){const rv=addScore(2000*S.repeatN);msg('Repeat ×'+(S.repeatN+1),'Repeat bonus +'+rv.toLocaleString(),1.8);}if(S.ds.st===1&&S.t-S.ds.t<15){S.ds={st:2,t:S.t};msg('D.S. — dal Segno','Now the Coda: shoot the ramp',2);}const v=addScore(S.orbLit?6000:3000);msg((S.orbLit?'Lit orbit':'Orbit')+' +'+v.toLocaleString(),'Round the tail of the Pleyel');S.orbLit=0;ev('hit');ev('ramp');S.metroSpin=1;}
 function laneSet(){S.orbLit=1;S.lanes=[0,0,0];S.laneSets++;const v=addScore(3000);msg('Prelude lanes complete +'+v.toLocaleString(),'');unlockSection(1);awardPrelude();ev('laneSet');
  if(S.laneSets%3===0&&S.waltz<=0){S.waltz=60;msg('MINUTE WALTZ!','60 seconds, double scoring, fast 3/4',3);playPhrase(THEMES.waltz.p.map(transpose),.11,.15,'waltz');}}
-function startRamp(b){b.cap={t:0};S.ramps++;const v=addScore(4000);msg('Barcarolle gondola +'+v.toLocaleString(),'');playPhrase(THEMES.barcarolle.p.slice(0,6).map(transpose),.2,.13,'barcarolle');unlockSection(2);ev('ramp');ev('hit');awardPrelude();
+function startRamp(b){b.cap={t:0};S.ramps++;if(S.ds.st===2&&S.t-S.ds.t<15){S.ds={st:0,t:0};const dv=addScore(25000);msg('D.S. al Coda!','Segno → D.S. → Coda  +'+dv.toLocaleString(),3);sfx('big');}const v=addScore(4000);msg('Barcarolle gondola +'+v.toLocaleString(),'');playPhrase(THEMES.barcarolle.p.slice(0,6).map(transpose),.2,.13,'barcarolle');unlockSection(2);ev('ramp');ev('hit');awardPrelude();
  if(S.encore>S.encoreGiven){S.encoreGiven++;S.ballsLeft++;msg('ENCORE! Extra ball','The audience demands more',3);sfx('big');}
  if(S.ramps%3===0&&S.balls.length<3&&!S.wizard){addBall();msg('FANTAISIE-IMPROMPTU','Multiball!',3);playPhrase(THEMES.fantaisie.p.map(transpose),.1,.15,'fantaisie');}}
 function unlockSection(i){if(S.orch[i])return;S.orch[i]=1;msg('Orchestra: '+SECTIONS[i]+' join','',2.5);sfx('good');ev('orch');if(S.orch.every(x=>x)&&!S.orchDone){S.orchDone=1;S.roses++;addScore(20000);msg('Full orchestra — Concerto!','+20,000 and a rose',3);}}
@@ -476,7 +505,11 @@ function update(rdt){
  for(const i in S.strVib){S.strVib[i]-=rdt*1.6;if(S.strVib[i]<=0)delete S.strVib[i];}
  if(S.spinV>0){const da=S.spinV*rdt;const before=Math.floor(S.spinA/Math.PI);S.spinA+=da;if(Math.floor(S.spinA/Math.PI)>before){S.spins++;addScore(100);}S.spinV=Math.max(0,S.spinV-rdt*14);}
  if(S.dropReset>0){S.dropReset-=rdt;if(S.dropReset<=0)S.drops=[0,0,0];}
- S.act=S.act.map(x=>Math.max(0,x-rdt*4));S.metroSpin=Math.max(0,S.metroSpin-rdt*.5);S.metroA+=rdt*(.15+S.metroSpin*9);S.kickFx=Math.max(0,(S.kickFx||0)-rdt*2);S.chaseT+=rdt;
+ S.act=S.act.map(x=>Math.max(0,x-rdt*4));
+ S.nfx.forEach(n=>{n.x+=n.vx*rdt;n.y+=n.vy*rdt;n.vy*=.985;n.t-=rdt;});S.nfx=S.nfx.filter(n=>n.t>0);
+ S.tnotes.forEach(n=>n.t-=rdt);S.tnotes=S.tnotes.filter(n=>n.t>0);
+ for(const b of S.balls){if(b.lane||b.cap||b.hold>0)continue;const sy=staffY(b.x);if(Math.abs(b.y-sy)<13){const L=S.tnotes[S.tnotes.length-1];if(!L||Math.hypot(L.x-b.x,L.by-b.y)>24){S.tnotes.push({x:b.x,y:sy+Math.round((b.y-sy)/2.5)*2.5,by:b.y,t:2.6,fl:Math.random()<.5?1:0});if(S.tnotes.length>24)S.tnotes.shift();}}}
+ if(flippers.some(f=>f.up))S.pedT=1;else S.pedT=Math.max(0,S.pedT-rdt*1.5);S.metroSpin=Math.max(0,S.metroSpin-rdt*.5);S.metroA+=rdt*(.15+S.metroSpin*9);S.kickFx=Math.max(0,(S.kickFx||0)-rdt*2);S.chaseT+=rdt;
  S.bumpFx=S.bumpFx.map(x=>Math.max(0,x-rdt*3));S.slingFx=S.slingFx.map(x=>Math.max(0,x-rdt*4));if(S.caption){S.caption.t-=rdt;if(S.caption.t<=0)S.caption=null;}if(S.bio){S.bio.t-=rdt;if(S.bio.t<=0)S.bio=null;}
  // drills
  const c=campaign?CHAPTERS[chapterIdx]:{};
@@ -508,7 +541,7 @@ function drain(b){
  msg('Ball lost',S.ballsLeft+' ball'+(S.ballsLeft>1?'s':'')+' left');newBall();
  if(campaign&&CHAPTERS[chapterIdx].wizard)S.wizStarted=0;}
 function autoLaunch(){setTimeout(()=>{if(mode==='play'){launch(.6);S.ballSave=4;}},500);}
-function onBeat(){if(!AC||muted)return;const t=AC.currentTime+.02;const k=S.key||[0,0];const root=36+k[0];const minor=k[1];const prog=[0,5,7,0];const bar=Math.floor(S.beatN/4)%4;const deg=prog[bar];const third=minor&&deg!==7?3:4;const beatInBar=S.beatN%(S.waltz>0||S.theme==='mazurka'||S.theme==='polonaiseG'?3:4);
+function onBeat(){if(!AC||muted)return;{const k=S.key||[0,0];const bar=Math.floor(S.beatN/4)%4;const dg=[0,5,7,0][bar];const bl=60/S.bpm;if(S.beatN%4===0){const r=48+k[0]+dg;const third=(k[1]&&dg!==7)?3:4;pad([r,r+third,r+7],bl*4);}}const t=AC.currentTime+.02;const k=S.key||[0,0];const root=36+k[0];const minor=k[1];const prog=[0,5,7,0];const bar=Math.floor(S.beatN/4)%4;const deg=prog[bar];const third=minor&&deg!==7?3:4;const beatInBar=S.beatN%(S.waltz>0||S.theme==='mazurka'||S.theme==='polonaiseG'?3:4);
  const vol=.05+S.dyn*.012;
  sfx('tick');
  if(beatInBar===0)tone(root+deg,t,.6,'sine',vol*2);else if(S.waltz>0||S.theme==='waltz')[0,third,7].forEach(x=>tone(root+24+deg+x,t,.25,'triangle',vol*.6));
@@ -573,7 +606,7 @@ function buildBG(hue,minor,layout){
  c.strokeStyle='rgba(255,240,200,.5)';c.lineWidth=1;c.stroke();
  // plate holes (show spruce through)
  [[72,205],[70,320],[235,215],[105,82],[215,150],[75,150],[255,390]].forEach(([x,y],i)=>{const r=i<3?12:8;c.save();c.beginPath();c.arc(x,y,r,0,7);c.clip();c.fillStyle='#c48f52';c.fillRect(x-r,y-r,2*r,2*r);c.strokeStyle='rgba(110,62,26,.3)';for(let j=-3;j<4;j++){c.beginPath();c.moveTo(x-r+j*5,y-r);c.lineTo(x-r+j*5+r,y+r);c.stroke();}c.restore();c.beginPath();c.arc(x,y,r,0,7);c.strokeStyle='#6a4a18';c.lineWidth=2.5;c.stroke();c.strokeStyle='rgba(255,240,190,.6)';c.lineWidth=1;c.beginPath();c.arc(x,y,r+1.8,Math.PI,Math.PI*1.6);c.stroke();});
- c.fillStyle='rgba(90,60,20,.55)';c.font=`italic bold 11px ${SERIF}`;c.textAlign='center';c.fillStyle='rgba(255,230,170,.55)';c.fillText('PLEYEL · PARIS',150,96);
+ c.fillStyle='rgba(90,60,20,.55)';c.font=`italic bold 11px ${SERIF}`;c.textAlign='center';c.fillStyle='rgba(255,230,170,.55)';c.fillText('PLEYEL · PARIS',150,80);
  c.restore();
  // strings (steel treble, copper-wound bass), running lengthwise to the tail
  STR.forEach((s,i)=>{const bass=i<14;c.strokeStyle=bass?'rgba(176,104,52,.85)':'rgba(225,228,232,.7)';c.lineWidth=bass?1.4:.8;c.beginPath();c.moveTo(s.x,s.top);c.lineTo(s.x,STR_BOT);c.stroke();c.strokeStyle='rgba(255,255,255,.18)';c.lineWidth=.4;c.beginPath();c.moveTo(s.x-.5,s.top);c.lineTo(s.x-.5,STR_BOT);c.stroke();});
@@ -609,7 +642,7 @@ function buildBG(hue,minor,layout){
  
  c.save();c.translate(345,640);c.rotate(-Math.PI/2);c.fillStyle='rgba(217,178,106,.7)';c.font=`italic 9px ${SERIF}`;c.textAlign='center';c.fillText('Fr. Chopin',0,3);c.restore();
  // lane label + ballade/accent labels
- c.fillStyle='rgba(60,36,10,.85)';c.font=`italic bold 10px ${SERIF}`;c.textAlign='center';c.fillText('Préludes · Op. 28',150,108);
+ c.fillStyle='rgba(60,36,10,.85)';c.font=`italic bold 10px ${SERIF}`;c.textAlign='center';c.fillText('Préludes · Op. 28',150,94);
  [[[100,484],[100,540],[144,566]],[[308,470],[322,515],[256,560]]].forEach(t=>{c.fillStyle='#120b10';c.beginPath();c.moveTo(...t[0]);c.lineTo(...t[1]);c.lineTo(...t[2]);c.closePath();c.fill();c.strokeStyle=goldGrad(c,t[0][0],t[0][1],t[2][0],t[2][1]);c.lineWidth=2;c.stroke();});
  c.font=`italic bold 10px ${SERIF}`;c.fillStyle='rgba(50,28,8,.9)';['I','III','V'].forEach((t,i)=>c.fillText(t,72,280+i*42));ACC.forEach(([x,y],i)=>c.fillText(String(i+1),x-14,y+4));
  // inner rim gilt line
@@ -619,7 +652,7 @@ function buildBG(hue,minor,layout){
  // ---- plate struts become rails; habitrail; inserts sockets ----
  const strut=(a,b,w)=>{c.save();c.lineCap='round';c.strokeStyle='rgba(0,0,0,.45)';c.lineWidth=w+3;c.beginPath();c.moveTo(a[0]+2,a[1]+3);c.lineTo(b[0]+2,b[1]+3);c.stroke();c.strokeStyle=goldGrad(c,a[0]-6,a[1],b[0]+6,b[1]);c.lineWidth=w;c.beginPath();c.moveTo(...a);c.lineTo(...b);c.stroke();
   const L=Math.hypot(b[0]-a[0],b[1]-a[1]);c.fillStyle='rgba(60,36,10,.75)';for(let d=10;d<L-6;d+=16){const t=d/L;c.beginPath();c.arc(a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,w*.22,0,7);c.fill();}c.restore();};
- strut([64,448],[64,540],5);strut([337,473],[346,505],5);strut([283,345],[248,170],6);
+ strut([64,448],[64,525],5);strut([337,473],[346,505],5);strut([283,345],[248,170],6);
  // strut tie bars joining the rails back to the plate (visual connection)
  c.save();c.strokeStyle='rgba(176,130,52,.55)';c.lineWidth=2.5;[[[64,448],[55,376]],[[248,170],[190,146]],[[283,345],[215,365]]].forEach(([a,b])=>{c.beginPath();c.moveTo(...a);c.lineTo(...b);c.stroke();});c.restore();
  // one-way gate
@@ -627,9 +660,24 @@ function buildBG(hue,minor,layout){
  // saucer
  c.save();const sg=c.createRadialGradient(SAUCER.x-2,SAUCER.y-2,1,SAUCER.x,SAUCER.y,14);sg.addColorStop(0,'#000');sg.addColorStop(.7,'#1a0f0a');sg.addColorStop(1,'#6a4a18');c.fillStyle=sg;c.beginPath();c.arc(SAUCER.x,SAUCER.y,14,0,7);c.fill();c.strokeStyle=goldGrad(c,SAUCER.x-14,SAUCER.y-14,SAUCER.x+14,SAUCER.y+14);c.lineWidth=2.5;c.stroke();c.restore();
  // labels for the new shots
- c.save();c.fillStyle='rgba(50,28,8,.85)';c.font=`italic 8px ${SERIF}`;c.textAlign='center';c.fillText('Ballade bank',133,422);c.fillText('scoop',SAUCER.x+22,SAUCER.y+16);c.save();c.translate(314,290);c.rotate(-1.36);c.fillText('orbit · round the tail',0,0);c.restore();c.fillText('kick',50,556);c.restore();
+ c.save();c.fillStyle='rgba(50,28,8,.85)';c.font=`italic 8px ${SERIF}`;c.textAlign='center';c.save();c.translate(314,290);c.rotate(-1.36);c.fillText('repeat · Scherzo Op. 31',0,0);c.restore();c.fillText('kick',50,556);c.restore();
  // insert sockets for the return-lane rollovers
  ROLL.forEach(r=>{c.fillStyle='rgba(0,0,0,.35)';c.beginPath();c.ellipse(r.x,r.y,6,8,0,0,7);c.fill();});
+ // ---- staff lines flowing through the table ----
+ c.save();c.strokeStyle='rgba(50,28,10,.22)';c.lineWidth=.8;for(let l=-2;l<=2;l++){c.beginPath();for(let x=40;x<=360;x+=4)c.lineTo(x,staffY(x)+l*5);c.stroke();}
+ c.fillStyle='rgba(50,28,10,.28)';c.strokeStyle='rgba(50,28,10,.3)';c.lineWidth=1.2;trebleClef(c,52,staffY(52)+1,.55);c.restore();
+ // ---- clefs mounted on the guide rails (gilt wire) ----
+ c.save();c.strokeStyle='rgba(240,205,120,.85)';c.fillStyle='rgba(240,205,120,.9)';c.lineWidth=1.6;c.shadowColor='rgba(0,0,0,.5)';c.shadowBlur=3;trebleClef(c,64,494,1.95);bassClef(c,336,486,1.35);c.restore();
+ // ---- slurs linking the Prelude lanes ----
+ c.save();c.strokeStyle='rgba(60,36,10,.6)';c.lineWidth=1.2;[[110,150],[150,190]].forEach(([a,b])=>{c.beginPath();c.moveTo(a+3,118);c.quadraticCurveTo((a+b)/2,104,b-3,118);c.quadraticCurveTo((a+b)/2,107,a+3,118);c.fill();c.stroke();});c.restore();
+ // ---- repeat signs on the orbit channel ----
+ c.save();c.strokeStyle='rgba(255,200,240,.75)';c.fillStyle='rgba(255,200,240,.85)';repeatSign(c,285,338,316,338,false);repeatSign(c,250,180,282,180,true);c.restore();
+ // ---- grace note + trill on the kickback ----
+ c.save();c.fillStyle='rgba(60,20,20,.85)';c.strokeStyle='rgba(60,20,20,.85)';noteGlyph(c,42,514,1,.6);c.beginPath();c.moveTo(40,513);c.lineTo(48,505);c.stroke();c.font=`italic bold 8px ${SERIF}`;c.fillText('tr',51,512);c.beginPath();for(let k=0;k<6;k++){c.lineTo(58+k*2,510+(k%2?-1.5:1.5));}c.stroke();c.restore();
+ // ---- pedal markings (Chopin's manuscript Ped. … ✱) ----
+ // (drawn live so they react to the flippers)
+ // ---- manuscript labels in Chopin's hand + opus numbers ----
+ c.save();c.fillStyle='rgba(50,28,8,.8)';c.font=`italic 9px ${SCRIPT}`;c.textAlign='center';c.fillText('Ballades Op. 23 · 38 · 47 · 52',133,432);c.fillText('Nocturne Op. 9',SAUCER.x+4,SAUCER.y+26);c.fillText('Barcarolle Op. 60',rampMouth.x-4,rampMouth.y-24);c.restore();
  if(!MEASURE){ // balance the asymmetric case: a loose manuscript page and a rose resting beside the bentside
   c.save();c.translate(348,126);c.rotate(.13);c.scale(.9,.9);c.shadowColor='rgba(0,0,0,.6)';c.shadowBlur=12;c.shadowOffsetY=4;
   const pg=c.createLinearGradient(-44,-62,44,62);pg.addColorStop(0,'#efe3c4');pg.addColorStop(1,'#cdb98d');c.fillStyle=pg;c.fillRect(-44,-62,88,124);c.shadowBlur=0;c.shadowOffsetY=0;
@@ -708,12 +756,27 @@ function draw(){
   ROLL.forEach((r,i)=>{ctx.save();const on=S.roll[i];ctx.fillStyle=on?'#ffe9a8':'rgba(255,230,170,.18)';if(on){ctx.shadowColor='#ffd98a';ctx.shadowBlur=12;}ctx.beginPath();ctx.ellipse(r.x,r.y,4.5,6.5,0,0,7);ctx.fill();ctx.restore();});
   // kickback insert
   {ctx.save();const on=S.kick;ctx.fillStyle=on?`rgba(255,80,80,${.6+.4*Math.sin(S.t*6)})`:'rgba(90,20,20,.5)';if(on||S.kickFx>0){ctx.shadowColor='#ff4040';ctx.shadowBlur=12+S.kickFx*20;}ctx.beginPath();ctx.moveTo(50,526);ctx.lineTo(56,540);ctx.lineTo(44,540);ctx.closePath();ctx.fill();ctx.restore();}}
+ // ---- staff trail: the ball writes notes on the staff ----
+ S.tnotes.forEach(n=>{ctx.save();ctx.globalAlpha=Math.min(1,n.t/1.2)*.8;ctx.fillStyle='#2a1406';ctx.strokeStyle='#2a1406';noteGlyph(ctx,n.x,n.y,n.fl,.8);ctx.restore();});
+ // ---- dynamics inserts (current dynamic lit) ----
+ ['pp','p','mp','mf','f','ff'].forEach((d,i)=>{const on=Math.min(S.dyn,5)===i;ctx.save();ctx.font=`italic bold ${on?11:9}px ${ENGR}`;ctx.textAlign='center';ctx.fillStyle=on?'#fff2c0':'rgba(60,36,10,.45)';if(on){ctx.shadowColor='#ffd98a';ctx.shadowBlur=12;}ctx.fillText(d,66+i*21,390);ctx.restore();});
+ // ---- segno (scoop), coda (ramp), fermata over the scoop; D.S. progress glows ----
+ {const st=S.ds.st;ctx.save();ctx.lineWidth=1.4;ctx.strokeStyle=ctx.fillStyle=st===0?'rgba(255,215,120,.85)':'rgba(255,215,120,.35)';if(st===0){ctx.shadowColor='#ffd98a';ctx.shadowBlur=6;}segno(ctx,SAUCER.x-24,SAUCER.y-2,1);ctx.restore();
+  ctx.save();ctx.lineWidth=1.4;ctx.strokeStyle=st===2?`rgba(255,255,255,${.6+.4*Math.sin(S.t*8)})`:'rgba(170,240,220,.55)';if(st===2){ctx.shadowColor='#aef3e2';ctx.shadowBlur=14;}coda(ctx,rampMouth.x+26,rampMouth.y-4,1);ctx.restore();
+  fermGlyph(SAUCER.x,SAUCER.y-26,S.balls.some(b=>b.hold>0)?'#fff':'rgba(255,215,120,.9)');
+  if(st>0){ctx.save();ctx.font=`italic 9px ${SCRIPT}`;ctx.textAlign='center';ctx.fillStyle='#ffe9a8';ctx.fillText(st===1?'D.S. → shoot the orbit':'al Coda → shoot the ramp',200,512-4);ctx.restore();}}
+ // ---- accent and staccato marks on the Mazurka targets ----
+ ACC.forEach(([x,y],i)=>{const on=S.beatN%3===i;ctx.save();ctx.strokeStyle=ctx.fillStyle=on?'#ffb07a':'rgba(60,36,10,.6)';ctx.lineWidth=1.3;ctx.beginPath();ctx.moveTo(x-22,y-8);ctx.lineTo(x-15,y-5);ctx.lineTo(x-22,y-2);ctx.stroke();ctx.beginPath();ctx.arc(x-18,y+4,1.3,0,7);ctx.fill();ctx.restore();});
+ // ---- pedal markings react to the flippers (sustain) ----
+ {ctx.save();ctx.font=`italic bold 13px ${SCRIPT}`;ctx.textAlign='center';ctx.fillStyle=S.pedT>0?`rgba(255,226,150,${.4+.6*S.pedT})`:'rgba(217,178,106,.35)';if(S.pedT>.5){ctx.shadowColor='#ffd98a';ctx.shadowBlur=8;}ctx.fillText('Ped.',92,668);ctx.shadowBlur=0;ctx.fillStyle=S.pedT<1&&S.pedT>0?'rgba(255,226,150,.9)':'rgba(217,178,106,.35)';ctx.font=`bold 15px ${SERIF}`;ctx.fillText('✱',308,670);ctx.restore();}
+ // ---- floating quavers / semiquavers from hits ----
+ S.nfx.forEach(n=>{ctx.save();ctx.globalAlpha=Math.min(1,n.t);ctx.translate(n.x,n.y);ctx.rotate(n.rot);ctx.fillStyle=ctx.strokeStyle='#fff3d0';ctx.shadowColor='#ffd98a';ctx.shadowBlur=6;noteGlyph(ctx,0,0,n.fl,.9);ctx.restore();});
  // ---- drop targets ----
- dropT.forEach((w,i)=>{ctx.save();if(S.drops[i]){ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(w.a[0],402,20,6);}else{const g=ctx.createLinearGradient(0,400,0,410);g.addColorStop(0,'#fffaf0');g.addColorStop(1,'#bfae8a');ctx.fillStyle=g;ctx.shadowColor='rgba(0,0,0,.6)';ctx.shadowBlur=4;ctx.shadowOffsetY=2;ctx.fillRect(w.a[0],400,20,8);ctx.shadowBlur=0;ctx.shadowOffsetY=0;ctx.fillStyle='#2a1a22';ctx.font=`italic bold 7px ${SERIF}`;ctx.textAlign='center';ctx.fillText(['I','II','III'][i],w.a[0]+10,407);}ctx.restore();});
+ dropT.forEach((w,i)=>{ctx.save();if(S.drops[i]){ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(w.a[0],402,20,6);}else{const g=ctx.createLinearGradient(0,400,0,410);g.addColorStop(0,'#fffaf0');g.addColorStop(1,'#bfae8a');ctx.fillStyle=g;ctx.shadowColor='rgba(0,0,0,.6)';ctx.shadowBlur=4;ctx.shadowOffsetY=2;ctx.fillRect(w.a[0],400,20,8);ctx.shadowBlur=0;ctx.shadowOffsetY=0;ctx.fillStyle='#2a1a22';ctx.font=`italic bold 7px ${SERIF}`;ctx.textAlign='center';ctx.font=`bold 9px ${SERIF}`;ctx.fillText(['♯','♭','♮'][i],w.a[0]+10,407.5);}ctx.restore();});
  // ---- spinner ----
  {const sx=(SPIN.x0+SPIN.x1)/2,w=(SPIN.x1-SPIN.x0)/2;const cs=Math.cos(S.spinA);ctx.save();ctx.strokeStyle=GOLD;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(SPIN.x0-1,SPIN.y);ctx.lineTo(SPIN.x1+1,SPIN.y);ctx.stroke();
   const g=ctx.createLinearGradient(0,SPIN.y-6,0,SPIN.y+6);g.addColorStop(0,cs>0?'#fff8e6':'#8a6428');g.addColorStop(1,cs>0?'#c9a24a':'#3a2410');ctx.fillStyle=g;ctx.fillRect(sx-w+2,SPIN.y-Math.abs(cs)*6,2*w-4,Math.abs(cs)*12+1);
-  if(Math.abs(cs)>.3){ctx.fillStyle='rgba(40,20,8,.8)';ctx.font=`italic bold 6px ${SERIF}`;ctx.textAlign='center';ctx.fillText('♩ = '+Math.round(S.bpm),sx,SPIN.y+2);}ctx.restore();}
+  if(Math.abs(cs)>.3){ctx.fillStyle='rgba(40,20,8,.8)';ctx.font=`italic bold 6px ${SERIF}`;ctx.textAlign='center';ctx.fillText(S.spinV>4?tempoName(60+S.spinV*6):tempoName(S.bpm),sx,SPIN.y+2);}ctx.restore();}
  // ---- saucer light ----
  {ctx.save();const held=S.balls.some(b=>b.hold>0);ctx.strokeStyle=held?'#fff':`rgba(255,210,90,${.4+.3*Math.sin(S.t*5)})`;ctx.lineWidth=1.5;ctx.shadowColor='#ffd25a';ctx.shadowBlur=held?16:6;ctx.beginPath();ctx.arc(SAUCER.x,SAUCER.y,16,0,7);ctx.stroke();ctx.restore();}
  // ---- rotating metronome toy (beside the bentside; swings with the tempo, spins on beat-perfect flips) ----
@@ -732,6 +795,7 @@ function draw(){
   ctx.save();ctx.lineCap='round';ctx.strokeStyle='rgba(0,0,0,.35)';ctx.lineWidth=3;[-5,5].forEach(o=>{ctx.beginPath();pts.forEach((p,k)=>ctx.lineTo(p[0]+off[k][0]*o+4,p[1]+off[k][1]*o+6));ctx.stroke();});
   ctx.strokeStyle='rgba(225,230,236,.55)';ctx.lineWidth=.9;for(let k=2;k<80;k+=4){const p=pts[k],n=off[k];ctx.beginPath();ctx.moveTo(p[0]-n[0]*6,p[1]-n[1]*6);ctx.lineTo(p[0]+n[0]*6,p[1]+n[1]*6);ctx.stroke();}
   [-5,5].forEach(o=>{const g=ctx.createLinearGradient(0,60,0,470);g.addColorStop(0,'#f4f7fa');g.addColorStop(1,'#8a939e');ctx.strokeStyle=g;ctx.lineWidth=1.8;ctx.beginPath();pts.forEach((p,k)=>ctx.lineTo(p[0]+off[k][0]*o,p[1]+off[k][1]*o));ctx.stroke();});
+  {ctx.save();ctx.strokeStyle=enc?'rgba(255,150,230,.8)':'rgba(170,240,220,.75)';ctx.lineWidth=1.3;const A=pt(.04),B=pt(.26),nB=off[21];ctx.beginPath();ctx.moveTo(B[0]+nB[0]*11,B[1]+nB[1]*11);ctx.lineTo(A[0],A[1]);ctx.lineTo(B[0]-nB[0]*11,B[1]-nB[1]*11);ctx.stroke();ctx.font=`italic 8px ${SCRIPT}`;ctx.fillStyle=ctx.strokeStyle;ctx.fillText('cresc.',B[0]+16,B[1]+14);ctx.restore();}
   const ph=(S.t*.6)%1;const q=pt(ph);ctx.fillStyle=enc?'#ff9be6':'#aef3e2';ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=12;ctx.beginPath();ctx.arc(q[0],q[1],2.2,0,7);ctx.fill();ctx.restore();}
  ctx.save();ctx.lineWidth=3;ctx.strokeStyle=goldGrad(ctx,rampMouth.x-17,rampMouth.y-17,rampMouth.x+17,rampMouth.y+17);ctx.beginPath();ctx.arc(rampMouth.x,rampMouth.y,rampMouth.r,0,7);ctx.stroke();ctx.fillStyle=enc?'rgba(255,120,220,.25)':'rgba(140,230,210,.15)';ctx.fill();
  // little gondola glyph
@@ -761,9 +825,14 @@ function draw(){
  ctx.save();ctx.globalCompositeOperation='lighter';S.particles.forEach(p=>{const a=Math.max(0,p.t);ctx.fillStyle=p.col;ctx.globalAlpha=a;ctx.beginPath();ctx.arc(p.x,p.y,(p.s||1.5)*(.5+a),0,7);ctx.fill();ctx.globalAlpha=a*.25;ctx.beginPath();ctx.arc(p.x,p.y,(p.s||1.5)*4,0,7);ctx.fill();});ctx.restore();
  // ---------- HUD ----------
  let g=ctx.createLinearGradient(0,0,0,46);g.addColorStop(0,'rgba(8,5,8,.95)');g.addColorStop(1,'rgba(8,5,8,.55)');ctx.fillStyle=g;ctx.fillRect(-60,0,W+120,46);ctx.fillStyle=goldGrad(ctx,0,0,W,0);ctx.fillRect(-60,45,W+120,1);
- ctx.textAlign='left';ctx.fillStyle=GOLD2;ctx.font=`italic bold 20px ${SERIF}`;ctx.fillText(S.score.toLocaleString(),10,22);
- ctx.font=`italic 10px ${SERIF}`;ctx.fillStyle='rgba(246,223,164,.8)';ctx.fillText('Balls '+S.ballsLeft+'   🌹 '+S.roses+'   Rubato '+S.rubato+'   Tempo ×'+S.tempoMult.toFixed(2),10,38);
- ctx.textAlign='right';ctx.font=`italic bold 15px ${SERIF}`;ctx.fillStyle=GOLD2;ctx.fillText(['pp','p','mp','mf','f','ff','fff'][S.dyn],336,20);ctx.font=`italic 9px ${SERIF}`;ctx.fillStyle='rgba(246,223,164,.75)';ctx.fillText(S.orch.map((o,i)=>o?SECTIONS[i]:'').filter(x=>x).join(' · ')||'solo piano',336,36);
+ ctx.textAlign='left';ctx.fillStyle=GOLD2;ctx.font=`bold 21px ${ENGR}`;ctx.fillText(S.score.toLocaleString(),10,22);
+ {const y0=29,sp=2.6,x0=8,x1=232;ctx.save();ctx.strokeStyle='rgba(246,223,164,.45)';ctx.lineWidth=.6;for(let l=0;l<5;l++){ctx.beginPath();ctx.moveTo(x0,y0+l*sp);ctx.lineTo(x1,y0+l*sp);ctx.stroke();}
+  ctx.lineWidth=.9;[x0,x1].forEach(x=>{ctx.beginPath();ctx.moveTo(x,y0);ctx.lineTo(x,y0+4*sp);ctx.stroke();});ctx.fillStyle=ctx.strokeStyle='rgba(246,223,164,.9)';ctx.lineWidth=.8;trebleClef(ctx,15,y0+6,.32);
+  const ks=keySig(S.key);let x=24;const shY=[0,1.5,-.5,1,2.5,.5,2],flY=[2,.5,2.5,1,3,1.5];ctx.font=`bold 7px ${SERIF}`;ctx.textAlign='center';for(let k=0;k<ks[0];k++){ctx.fillText('♯',x,y0+shY[k]*sp+2.5);x+=4;}for(let k=0;k<ks[1];k++){ctx.fillText('♭',x,y0+flY[k]*sp+2);x+=4;}
+  const three=S.waltz>0||S.theme==='mazurka'||S.theme==='polonaiseG';ctx.font=`bold 6px ${ENGR}`;ctx.fillText(three?'3':'4',x+4,y0+4.4);ctx.fillText('4',x+4,y0+10);x+=13;
+  for(let k=0;k<Math.min(6,S.ballsLeft);k++)wholeNote(ctx,x+k*11,y0+(2-k%3*.5)*sp,1);x+=Math.min(6,S.ballsLeft)*11+4;
+  ctx.font=`italic 9px ${SERIF}`;ctx.textAlign='left';ctx.fillStyle='rgba(246,223,164,.85)';ctx.fillText('🌹'+S.roses+'  Rub. '+S.rubato+'  ×'+S.tempoMult.toFixed(2),x,y0+8);ctx.restore();}
+ ctx.textAlign='right';ctx.font=`italic bold 15px ${SERIF}`;ctx.fillStyle=GOLD2;ctx.font=`italic bold 16px ${ENGR}`;ctx.fillText(['pp','p','mp','mf','f','ff','fff'][S.dyn],336,20);ctx.font=`italic 9px ${SERIF}`;ctx.fillStyle='rgba(246,223,164,.75)';ctx.fillText(S.orch.map((o,i)=>o?SECTIONS[i]:'').filter(x=>x).join(' · ')||'solo piano',336,36);
  const beatLen=60/(S.waltz>0?S.bpm*1.5:S.bpm);const ph=S.beatT/beatLen;ctx.save();ctx.strokeStyle=S.tempoFx>0?'#9f9':GOLD2;ctx.shadowColor=ctx.strokeStyle;ctx.shadowBlur=ph<.15?12:0;ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(366,22,6+(1-ph)*6,0,7);ctx.stroke();ctx.restore();
  ctx.fillStyle='rgba(224,69,92,.9)';ctx.fillRect(0,46,W*Math.min(1,S.applause/(25000*(1+S.roses))),1.5);
  ctx.textAlign='center';ctx.font=`italic 10.5px ${SERIF}`;let st=[];const c=campaign?CHAPTERS[chapterIdx]:null;
